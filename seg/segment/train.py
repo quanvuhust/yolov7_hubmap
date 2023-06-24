@@ -60,6 +60,7 @@ from utils.segment.metrics import KEYS, fitness
 from utils.segment.plots import plot_images_and_masks, plot_results_with_masks
 from utils.torch_utils import (EarlyStopping, ModelEMA, de_parallel, select_device, smart_DDP, smart_optimizer,
                                smart_resume, torch_distributed_zero_first)
+from lion_pytorch.lion_pytorch import Lion
 
 LOCAL_RANK = int(os.getenv('LOCAL_RANK', -1))  # https://pytorch.org/docs/stable/elastic/run.html
 RANK = int(os.getenv('RANK', -1))
@@ -157,7 +158,10 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
     nbs = 64  # nominal batch size
     accumulate = max(round(nbs / batch_size), 1)  # accumulate loss before optimizing
     hyp['weight_decay'] *= batch_size * accumulate / nbs  # scale weight_decay
-    optimizer = smart_optimizer(model, opt.optimizer, hyp['lr0'], hyp['momentum'], hyp['weight_decay'])
+    if opt.optimizer == "Lion":
+        optimizer = Lion(model.parameters(), lr=hyp['lr0'], weight_decay=hyp['weight_decay'])
+    else:
+        optimizer = smart_optimizer(model, opt.optimizer, hyp['lr0'], hyp['momentum'], hyp['weight_decay'])
 
     # Scheduler
     if opt.cos_lr:
